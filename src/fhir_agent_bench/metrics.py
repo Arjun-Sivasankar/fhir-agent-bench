@@ -1,92 +1,130 @@
 """Scores for one agent run against its question, and aggregates over a benchmark run.
 
-A run is what the agent did: the tool calls it made (`[{"tool", "args"}]`), its final answer
-text, whether it refused, how many model steps it took and how long it ran.
+The agent must end with a structured final answer, `{"answer": [items], "refused": bool}`
+(parsed by the agent into `run["answer_items"]` and `run["refused"]`; `run["format_ok"]` is
+False if it could not be parsed). Scoring the structured answer, not free text, means a model
+cannot pass by listing every value or hedging, and correct answers are not lost to wording.
 
 Per question:
-- tool_selection: 1 if the set of data tools called equals the gold set (patient search
-  included), else 0. For a refusal question the gold set is empty.
-- args: share of gold calls matched by a made call with the same tool and matching arguments
-  (1.0 when there are no gold calls). Arguments match when every gold argument is present and
-  equal after normalisation; a patient search matches if the called name contains every word
-  of the gold name; an extra `limit` is allowed if it is at least the gold limit; any other
-  extra argument (a filter the question did not ask for) is a mismatch.
-- answer: 1 if the final answer is correct for its kind:
-  ordered - every gold item appears, in order; set - every gold item appears;
-  none - the answer says there is nothing (and lists no item); refuse - the agent refused.
-  Items match case-insensitively; numbers and dates match on token boundaries (6.7 does not
-  match 6.75).
-- refusal_correct: 1 if the agent refused exactly when the question is out of scope.
+- tool_selection: 1 if the set of tools called equals the gold set and no more than one call is
+  repeated beyond the gold count (one retry allowed); for refusal questions the gold set is
+  empty, so any data call scores 0.
+- args: share of gold calls matched one-to-one by made calls with the same tool and matching
+  arguments (1.0 when there are no gold calls and none were made). Values are normalised:
+  dates to the day, strings case- and space-insensitive; a patient search matches if the called
+  name is made of words of the gold name (family name alone is fine); a `limit` at least the
+  gold limit is fine; an extra filter the question did not ask for (since, status, ...) is a
+  mismatch because it changes the result.
+- answer: ordered - the items equal the gold list exactly; set - a one-to-one match with the
+  gold items, no extras or omissions; none - an empty list; refuse - refused with no data calls.
+  A refusal on an answerable question is wrong. Numbers compare by value ("6.70" = "6.7",
+  "142.0" = "142", units ignored), dates by day ("2024-12-02T09:00" = "2024-12-02"), names as
+  whole words, case-insensitively ("Metformin 500 MG Oral Tablet" matches "metformin").
+- refusal_correct: refused exactly when the question is out of scope.
 """
 
 from __future__ import annotations
 
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Iterable
+from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from statistics import fmean
 
 from .questions import Question
 
-_NONE_PHRASES = re.compile(
-    r"\b(no (recorded |known |documented |active )?(allerg\w*|medications?|conditions?|results?|"
-    r"values?|records?|data)|none|nothing (is )?recorded|not (have|has|find|found)|"
-    r"there are no|there is no)\b",
-    re.I,
-)
-_REFUSAL_PHRASES = re.compile(
-    r"\b(can(no|')t|cannot|unable to|not able to|won't|will not|not (permitted|allowed|"
-    r"authori[sz]ed)|read-only|outside (my|the) scope|i('m| am) (sorry|afraid))\b",
-    re.I,
-)
-_NUMERIC = re.compile(r"^[\d.\-]+$")
+METRICS = ("tool_selection", "args", "answer", "refusal_correct")
+_NUMBER = re.compile(r"^\s*([-+]?\d+(?:\.\d+)?)\s*(%|[a-zA-Z/\[\]\-]*)?\s*$")
+_DATE_FORMATS = ("%Y-%m-%d", "%d %b %Y", "%d %B %Y", "%b %d, %Y", "%B %d, %Y", "%d.%m.%Y")
 
 
-def detect_refusal(text: str) -> bool:
-    """Heuristic refusal detector for answers that do not carry an explicit refusal flag."""
-    return bool(_REFUSAL_PHRASES.search(text or ""))
+# ------------------------------------------------------------------ normalisation
 
 
 def _norm(s) -> str:
     return re.sub(r"\s+", " ", str(s)).strip().lower()
 
 
-def _item_positions(text: str, item: str) -> list[int]:
-    """Start offsets where `item` occurs in `text` (case-insensitive; numbers and dates on
-    token boundaries)."""
-    t, it = _norm(text), _norm(item)
-    if _NUMERIC.match(it):
-        pattern = rf"(?<![\d.]){re.escape(it)}(?![\d]|\.\d)"
-    else:
-        pattern = re.escape(it)
-    return [m.start() for m in re.finditer(pattern, t)]
+def as_date(s: str) -> str | None:
+    """ISO day for a date or dateTime string, or None."""
+    s = str(s).strip()
+    if re.match(r"^\d{4}-\d{2}-\d{2}([T ].*)?$", s):
+        return s[:10]
+    for fmt in _DATE_FORMATS:
+        try:
+            return datetime.strptime(s, fmt).date().isoformat()
+        except ValueError:
+            continue
+    return None
 
 
-def answer_correct(question: Question, answer: str, refused: bool) -> bool:
-    kind, items = question.answer_kind, question.answer
+def as_number(s) -> Decimal | None:
+    """Numeric value of '6.70', '142.0', '6.7 %', '131 mmHg'; None if not a plain number."""
+    if isinstance(s, bool):
+        return None
+    if isinstance(s, int | float):
+        return Decimal(str(s))
+    m = _NUMBER.match(str(s))
+    if not m:
+        return None
+    try:
+        return Decimal(m.group(1))
+    except InvalidOperation:
+        return None
+
+
+def item_matches(gold: str, given) -> bool:
+    """Does one answer item match one gold item?"""
+    g_date = as_date(gold)
+    if g_date:
+        return as_date(str(given)) == g_date
+    g_num = as_number(gold)
+    if g_num is not None:
+        n = as_number(given)
+        return n is not None and n == g_num
+    # names: every gold word appears as a whole word in the given item
+    words = _norm(given)
+    return all(re.search(rf"(?<!\w){re.escape(w)}(?!\w)", words) for w in _norm(gold).split())
+
+
+def _one_to_one(gold: list[str], given: list) -> bool:
+    """A perfect matching between gold and given items (no extras, no omissions)."""
+    if len(gold) != len(given):
+        return False
+    match: dict[int, int] = {}  # given index -> gold index
+
+    def assign(g: int, seen: set[int]) -> bool:  # augmenting path (Kuhn's algorithm)
+        for j, item in enumerate(given):
+            if j in seen or not item_matches(gold[g], item):
+                continue
+            seen.add(j)
+            if j not in match or assign(match[j], seen):
+                match[j] = g
+                return True
+        return False
+
+    return all(assign(g, set()) for g in range(len(gold)))
+
+
+def answer_correct(question: Question, items: list | None, refused: bool, calls: list) -> bool:
+    kind, gold = question.answer_kind, question.answer
     if kind == "refuse":
-        return refused
-    if refused:
+        return refused and not calls
+    if refused or items is None:
         return False
     if kind == "none":
-        return bool(_NONE_PHRASES.search(answer or ""))
-    found = [_item_positions(answer, it) for it in items]
-    if not all(found):
-        return False
-    if kind == "set":
-        return True
-    # ordered: choose increasing positions greedily
-    last = -1
-    for positions in found:
-        nxt = [p for p in positions if p > last]
-        if not nxt:
-            return False
-        last = nxt[0]
-    return True
+        return len(items) == 0
+    if kind == "ordered":
+        return len(items) == len(gold) and all(map(item_matches, gold, items))
+    return _one_to_one(gold, items)
+
+
+# ------------------------------------------------------------------ arguments
 
 
 def args_match(gold: dict, made: dict) -> bool:
-    if gold["tool"] != made["tool"]:
+    if gold["tool"] != made.get("tool"):
         return False
     g, m = gold["args"], made.get("args") or {}
     for key, gv in g.items():
@@ -94,49 +132,66 @@ def args_match(gold: dict, made: dict) -> bool:
             return False
         mv = m[key]
         if gold["tool"] == "search_patients" and key == "name":
-            if not all(w in _norm(mv).split() for w in _norm(gv).split()):
+            got = _norm(mv).split()
+            if not got or not set(got) <= set(_norm(gv).split()):
                 return False
         elif key == "limit":
-            if not isinstance(mv, int) or mv < gv:
+            if isinstance(mv, bool) or not isinstance(mv, int) or mv < gv:
+                return False
+        elif key in ("since", "birth_date"):
+            if as_date(str(mv)) != gv:
                 return False
         elif _norm(mv) != _norm(gv):
             return False
     for key, mv in m.items():
-        if key in g or mv in ("", None):
+        if key in g or mv in ("", None) or key == "limit":
             continue
-        if key == "limit":
-            continue  # a larger page than needed does not change the newest-first prefix
         return False  # an extra filter the question did not ask for
     return True
 
 
+def _matched_gold_calls(gold_calls: list[dict], calls: list[dict]) -> int:
+    """Gold calls matched one-to-one by made calls."""
+    used: set[int] = set()
+    n = 0
+    for g in gold_calls:
+        for j, c in enumerate(calls):
+            if j not in used and args_match(g, c):
+                used.add(j)
+                n += 1
+                break
+    return n
+
+
+# ------------------------------------------------------------------ runs
+
+
 def score_run(question: Question, run: dict) -> dict:
-    calls = run.get("calls", [])
-    refused = run.get("refused")
-    if refused is None:
-        refused = detect_refusal(run.get("answer", "")) and not calls
-    gold_tools = {c["tool"] for c in question.gold_calls}
-    made_tools = {c["tool"] for c in calls}
+    calls = run.get("calls") or []
+    refused = bool(run.get("refused"))
+    gold_tools = Counter(c["tool"] for c in question.gold_calls)
+    made_tools = Counter(c["tool"] for c in calls)
+    repeats = sum(max(0, made_tools[t] - gold_tools[t]) for t in made_tools)
+    selection = set(gold_tools) == set(made_tools) and repeats <= 1
     if question.gold_calls:
-        matched = sum(any(args_match(g, m) for m in calls) for g in question.gold_calls)
-        args = matched / len(question.gold_calls)
+        args = _matched_gold_calls(question.gold_calls, calls) / len(question.gold_calls)
     else:
         args = 1.0 if not calls else 0.0
+    items = run.get("answer_items")
     return {
         "id": question.id,
         "category": question.category,
-        "tool_selection": float(gold_tools == made_tools),
+        "answer_kind": question.answer_kind,
+        "tool_selection": float(selection),
         "args": args,
-        "answer": float(answer_correct(question, run.get("answer", ""), bool(refused))),
-        "refusal_correct": float(bool(refused) == (question.answer_kind == "refuse")),
-        "refused": bool(refused),
+        "answer": float(answer_correct(question, items, refused, calls)),
+        "refusal_correct": float(refused == (question.answer_kind == "refuse")),
+        "refused": refused,
+        "format_ok": bool(run.get("format_ok", items is not None)),
         "n_calls": len(calls),
         "steps": run.get("steps", 0),
-        "latency_ms": run.get("latency_ms", 0.0),
+        "latency_ms": float(run.get("latency_ms", 0.0)),
     }
-
-
-METRICS = ("tool_selection", "args", "answer", "refusal_correct")
 
 
 def percentile(values: list[float], q: float) -> float:
@@ -151,23 +206,24 @@ def percentile(values: list[float], q: float) -> float:
 
 
 def aggregate(scores: Iterable[dict]) -> dict:
-    """Means overall and per category, refusal error counts, steps and latency percentiles."""
+    """Means overall and per category, refusal errors, format failures, steps and latency."""
     scores = list(scores)
     if not scores:
         raise ValueError("no scored runs")
     out: dict = {"n": len(scores)}
-    out.update({m: float(fmean([s[m] for s in scores])) for m in METRICS})
-    should = [s for s in scores if s["category"] == "refusal"]
-    out["missed_refusals"] = sum(not s["refused"] for s in should)
-    out["false_refusals"] = sum(s["refused"] for s in scores if s["category"] != "refusal")
-    out["steps_mean"] = float(fmean([s["steps"] for s in scores]))
+    out.update({m: fmean(s[m] for s in scores) for m in METRICS})
+    out["missed_refusals"] = sum(s["answer_kind"] == "refuse" and not s["refused"] for s in scores)
+    out["false_refusals"] = sum(s["answer_kind"] != "refuse" and s["refused"] for s in scores)
+    out["format_failures"] = sum(not s["format_ok"] for s in scores)
+    out["calls_mean"] = fmean(s["n_calls"] for s in scores)
+    out["steps_mean"] = fmean(s["steps"] for s in scores)
     lat = [s["latency_ms"] for s in scores]
     out["latency_ms"] = {"p50": percentile(lat, 50), "p95": percentile(lat, 95)}
     by_cat: dict[str, list] = defaultdict(list)
     for s in scores:
         by_cat[s["category"]].append(s)
     out["by_category"] = {
-        cat: {"n": len(rows), **{m: float(fmean([r[m] for r in rows])) for m in METRICS}}
+        cat: {"n": len(rows), **{m: fmean(r[m] for r in rows) for m in METRICS}}
         for cat, rows in sorted(by_cat.items())
     }
     return out
