@@ -101,11 +101,24 @@ def _result_count(text: str) -> int | None:
         return None
 
 
-def make_chat_model(base_url: str, model: str, api_key: str = "EMPTY", temperature: float = 0.0):
-    """Chat model behind an OpenAI-compatible endpoint (needs the `models` extra)."""
+def make_chat_model(
+    base_url: str,
+    model: str,
+    api_key: str = "EMPTY",
+    temperature: float = 0.0,
+    headers: dict[str, str] | None = None,
+):
+    """Chat model behind an OpenAI-compatible endpoint (needs the `models` extra).
+    `headers` are sent with every request (e.g. a user agent or a session id)."""
     from langchain_openai import ChatOpenAI
 
-    return ChatOpenAI(base_url=base_url, model=model, api_key=api_key, temperature=temperature)
+    return ChatOpenAI(
+        base_url=base_url,
+        model=model,
+        api_key=api_key,
+        temperature=temperature,
+        default_headers=headers or None,
+    )
 
 
 class Agent:
