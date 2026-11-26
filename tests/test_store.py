@@ -49,7 +49,7 @@ def test_medications_conditions_allergies(store):
     assert [m.name.split()[0] for m in active] == ["Metformin", "Lisinopril"]
     assert len(store.medications("p001")) == 3
     conds = store.conditions("p001", clinical_status="active")
-    assert [c.name for c in conds] == ["Diabetes mellitus type 2", "Hypertensive disorder"]
+    assert [c.name for c in conds] == ["Diabetes mellitus type 2", "Hypertension"]
     assert [c.name for c in store.conditions("p001", since="2020-01-01")] == ["Acute bronchitis"]
     assert [a.substance for a in store.allergies("p002")] == ["Allergy to peanut", "Latex allergy"]
     assert store.allergies("p003") == []

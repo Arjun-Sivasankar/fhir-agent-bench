@@ -29,7 +29,8 @@ from .store import BundleStore, FhirStore, HapiStore, as_dicts
 ID = re.compile(r"[A-Za-z0-9\-.]{1,64}")  # FHIR id rule (used with fullmatch)
 LOINC = re.compile(r"[0-9]{1,7}-[0-9]")
 ISO_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")  # ASCII digits only
-NAME = re.compile(r"[^\W\d_](?:[^\W\d_]|[ '.\-])*")  # letters, spaces, ' . -
+# letters and digits (Synthea appends digits to names: "Abe604 Ziemann110"), spaces, ' . -
+NAME = re.compile(r"[^\W_](?:[^\W_]|[ '.\-])*")
 MED_STATUS = {
     "active",
     "on-hold",
@@ -202,7 +203,9 @@ def create_server(store: FhirStore, audit: AuditLog | None = None) -> MCPServer:
         if not name and not birth_date:
             raise ToolError("give a name, a birth_date or both")
         if name and (len(name) > 100 or not NAME.fullmatch(name)):
-            raise ToolError(f"invalid name {name!r}: letters, spaces, apostrophes and hyphens only")
+            raise ToolError(
+                f"invalid name {name!r}: letters, digits, spaces, apostrophes and hyphens only"
+            )
         return result(store.search_patients(name or None, _date(birth_date, "birth_date")))
 
     @server.tool(annotations=READ_ONLY)

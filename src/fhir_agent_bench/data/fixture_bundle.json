@@ -916,10 +916,10 @@
       {
        "system": "http://snomed.info/sct",
        "code": "38341003",
-       "display": "Hypertensive disorder"
+       "display": "Hypertension"
       }
      ],
-     "text": "Hypertensive disorder"
+     "text": "Hypertension"
     },
     "subject": {
      "reference": "Patient/p001"
