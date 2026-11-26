@@ -130,6 +130,12 @@ def test_opencode_go_preset_headers_per_question():
     a, b = model_for(qs[0]), model_for(qs[1])
     assert a.default_headers["User-Agent"] == b.default_headers["User-Agent"] == USER_AGENT
     assert a.default_headers["x-opencode-session"] != b.default_headers["x-opencode-session"]
+    # the headers reach the underlying OpenAI HTTP client
+    assert (
+        a.root_client.default_headers["x-opencode-session"]
+        == (a.default_headers["x-opencode-session"])
+    )
+    assert a.root_client.default_headers["User-Agent"] == USER_AGENT
     shared = chat_model_factory("https://x.test/v1", "m", "k")
     assert shared(qs[0]) is shared(qs[1])  # no session header: one stateless client
 
@@ -180,6 +186,31 @@ def test_missing_key_variable_is_an_error(tmp_path, monkeypatch):
                 "x",
                 "--provider",
                 "opencode-go",
+                "--model",
+                "m",
+                "--results-dir",
+                str(tmp_path),
+            ]
+        )
+
+
+def test_public_url_drops_credentials_and_query():
+    from fhir_agent_bench.runner import _public_url
+
+    assert _public_url("https://user:pw@host.test:8443/v1?key=abc") == "https://host.test:8443/v1"
+    assert _public_url("") == ""
+
+
+def test_provider_with_stub_kind_is_refused(tmp_path):
+    with pytest.raises(SystemExit):
+        main(
+            [
+                "--name",
+                "x",
+                "--provider",
+                "opencode-go",
+                "--model-kind",
+                "stub-gold",
                 "--model",
                 "m",
                 "--results-dir",

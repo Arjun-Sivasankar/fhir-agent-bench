@@ -22,6 +22,7 @@ import json
 import os
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 from uuid import uuid4
 
 from . import __version__
@@ -131,6 +132,16 @@ PROVIDERS = {
 }
 
 
+def _public_url(url: str) -> str:
+    """The URL without credentials or query string, as stored in run settings."""
+    if not url:
+        return url
+    p = urlsplit(url)
+    host = p.hostname or ""
+    netloc = host + (f":{p.port}" if p.port else "")
+    return urlunsplit((p.scheme, netloc, p.path, "", ""))
+
+
 def chat_model_factory(base_url: str, model: str, api_key: str, preset: dict | None = None):
     """model_for(question) for an OpenAI-compatible endpoint. Every request carries our user
     agent; with a session header in the preset, each question (one conversation) gets its own
@@ -178,6 +189,8 @@ def main(argv: list[str] | None = None) -> None:
 
     if not (args.model_kind or args.provider):
         ap.error("give --model-kind or --provider")
+    if args.provider and args.model_kind == "stub-gold":
+        ap.error("--provider runs a real model; do not combine it with --model-kind stub-gold")
     preset = PROVIDERS.get(args.provider, {})
     if preset:
         args.model_kind = "openai"
@@ -188,7 +201,7 @@ def main(argv: list[str] | None = None) -> None:
     if args.model_kind == "openai" and not (args.base_url and args.model and args.hardware):
         ap.error("--model-kind openai needs --base-url, --model and --hardware")
     api_key = "EMPTY"
-    if args.api_key_env:
+    if args.api_key_env and args.model_kind == "openai":
         api_key = os.environ.get(args.api_key_env, "")
         if not api_key:
             ap.error(f"environment variable {args.api_key_env} is not set")
@@ -212,7 +225,7 @@ def main(argv: list[str] | None = None) -> None:
         "model_kind": args.model_kind,
         "model": args.model or "gold-replay stub",
         "provider": args.provider,
-        "base_url": args.base_url,
+        "base_url": _public_url(args.base_url),
         "api_key_env": args.api_key_env,  # the variable's name only, never its value
         "temperature": 0.0,
         "backend": args.backend,
