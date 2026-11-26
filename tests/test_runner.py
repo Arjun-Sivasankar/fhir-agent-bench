@@ -77,9 +77,46 @@ async def test_a_wrong_model_scores_badly(tmp_path):
         return ScriptedModel(script=[final_message(["42"])])
 
     s = await run_benchmark(qs, BundleStore.fixture(), model_for, tmp_path / "w.jsonl", {})
-    assert s["answer"] == 0 and s["tool_selection"] == 0 and s["refusal_correct"] == 1
+    assert s["answer"] == 0 and s["tool_selection"] == 0 and s["args"] == 0
 
 
 def test_openai_kind_requires_endpoint_details(tmp_path):
     with pytest.raises(SystemExit):
         main(["--name", "x", "--model-kind", "openai", "--results-dir", str(tmp_path)])
+
+
+async def test_a_failing_question_is_recorded_and_the_run_goes_on(tmp_path):
+    qs = read_jsonl(QUESTIONS_PATH)[:3]
+
+    def model_for(q):
+        if q.id == qs[1].id:
+            raise RuntimeError("model server returned 500")
+        return gold_replay_model(q)
+
+    s = await run_benchmark(qs, BundleStore.fixture(), model_for, tmp_path / "e.jsonl", {})
+    assert s["n"] == 3 and s["run_errors"] == 1 and s["format_failures"] == 1
+    assert s["answer"] == pytest.approx(2 / 3)
+
+
+async def test_duplicate_ids_are_rejected(tmp_path):
+    q = read_jsonl(QUESTIONS_PATH)[0]
+    with pytest.raises(ValueError, match="unique"):
+        await run_benchmark(
+            [q, q], BundleStore.fixture(), gold_replay_model, tmp_path / "d.jsonl", {}
+        )
+
+
+def test_resume_with_a_different_limit_is_refused(tmp_path):
+    base = [
+        "--name",
+        "lim",
+        "--model-kind",
+        "stub-gold",
+        "--questions",
+        str(QUESTIONS_PATH),
+        "--results-dir",
+        str(tmp_path),
+    ]
+    main([*base, "--limit", "2"])
+    with pytest.raises(SystemExit, match="other settings"):
+        main([*base, "--limit", "3"])

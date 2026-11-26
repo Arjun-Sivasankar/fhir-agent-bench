@@ -22,7 +22,8 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from .agent import Agent, make_chat_model
+from . import __version__
+from .agent import SYSTEM_PROMPT, Agent, make_chat_model
 from .metrics import aggregate, score_run
 from .questions import read_jsonl
 from .server import AuditLog, create_server
@@ -73,7 +74,15 @@ def open_rows(rows_path: Path, config: dict) -> dict[str, dict]:
 async def run_benchmark(
     questions, store, model_for, rows_path: Path, config: dict, max_steps: int = 8
 ) -> dict:
-    """Run every question not yet done; return the aggregate over all done rows."""
+    """Run every question not yet done; return the aggregate over all done rows.
+
+    A question whose run fails (model server error, malformed reply, recursion limit) is
+    recorded as a failed run (no answer, format failure, the error kept) and the run goes on.
+    The audit log is an append-only trail: a question re-run after a crash appears again.
+    """
+    ids = [q.id for q in questions]
+    if len(set(ids)) != len(ids):
+        raise ValueError("question ids must be unique")
     done = open_rows(rows_path, config)
     audit = AuditLog(rows_path.with_suffix(".audit.jsonl"))
     server = create_server(store, audit)
@@ -81,12 +90,28 @@ async def run_benchmark(
         for q in questions:
             if q.id in done:
                 continue
-            run = await Agent(model_for(q), server, max_steps=max_steps).run(q.question)
+            try:
+                run = await Agent(model_for(q), server, max_steps=max_steps).run(q.question)
+            except Exception as e:  # noqa: BLE001  - one failing question must not end the run
+                run = {
+                    "answer": "",
+                    "answer_items": None,
+                    "refused": False,
+                    "format_ok": False,
+                    "calls": [],
+                    "trace": [],
+                    "steps": 0,
+                    "latency_ms": 0.0,
+                    "error": f"{type(e).__name__}: {e}"[:500],
+                }
             row = {**score_run(q, run), "run": run}
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
             f.flush()
             done[q.id] = row
-    return aggregate(done[q.id] for q in questions if q.id in done)
+    rows = [done[i] for i in ids if i in done]
+    summary = aggregate(rows)
+    summary["run_errors"] = sum(bool(r["run"].get("error")) for r in rows)
+    return summary
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -117,7 +142,7 @@ def main(argv: list[str] | None = None) -> None:
         def model_for(q):
             return gold_replay_model(q)
     else:
-        chat = make_chat_model(args.base_url, args.model)
+        chat = make_chat_model(args.base_url, args.model)  # stateless client: safe to share
 
         def model_for(q):
             return chat
@@ -125,17 +150,27 @@ def main(argv: list[str] | None = None) -> None:
     config = {
         "questions": str(args.questions),
         "questions_sha256": _sha256(args.questions),
+        "limit": args.limit,
+        "question_ids": [q.id for q in questions],
         "data": args.fhir_url or "fixture",
         "model_kind": args.model_kind,
         "model": args.model or "gold-replay stub",
+        "base_url": args.base_url,
+        "temperature": 0.0,
         "backend": args.backend,
         "hardware": args.hardware,
         "max_steps": args.max_steps,
+        "system_prompt_sha256": hashlib.sha256(SYSTEM_PROMPT.encode()).hexdigest()[:16],
+        "fhir_agent_bench": __version__,
     }
     rows_path = args.results_dir / f"{args.name}.jsonl"
-    summary = asyncio.run(
-        run_benchmark(questions, store, model_for, rows_path, config, args.max_steps)
-    )
+    try:
+        summary = asyncio.run(
+            run_benchmark(questions, store, model_for, rows_path, config, args.max_steps)
+        )
+    finally:
+        if isinstance(store, HapiStore):
+            store.close()
     out = {
         "meta": {**config, "finished_utc": datetime.now(UTC).isoformat(timespec="seconds")},
         "summary": summary,
@@ -154,6 +189,7 @@ def main(argv: list[str] | None = None) -> None:
                     "answer",
                     "refusal_correct",
                     "format_failures",
+                    "run_errors",
                 )
             },
             indent=2,
