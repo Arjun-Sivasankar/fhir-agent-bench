@@ -57,7 +57,16 @@ OBSERVATIONS = {
         (SBP, [("2023-04-17", 148.0), ("2024-05-20", 136.0), ("2024-12-02", 131.0)]),
     ],
     "p002": [
-        (HBA1C, [("2021-06-07", 5.6), ("2022-06-13", 5.8), ("2023-06-19", 5.9)]),
+        # Synthea-style timestamps with offsets; the last one is 2023-06-20 in UTC but
+        # 2023-06-19 as recorded, which is the date the store uses
+        (
+            HBA1C,
+            [
+                ("2021-06-07T08:15:00+02:00", 5.6),
+                ("2022-06-13", 5.8),
+                ("2023-06-19T23:30:00-05:00", 5.9),
+            ],
+        ),
         (SBP, [("2022-06-13", 124.0), ("2023-06-19", 128.0)]),
     ],
     "p003": [
@@ -109,6 +118,16 @@ MEDICATIONS = {  # (rxnorm, name, status, authored on)
         ("966247", "Levothyroxine Sodium 0.075 MG Oral Tablet", "active", "2020-02-01"),
         ("310965", "Ibuprofen 200 MG Oral Tablet", "completed", "2019-05-10"),
     ],
+}
+
+# Blood-pressure panels as Synthea writes them: values only in component[] (pid -> dates)
+BP_PANEL = ("85354-9", "Blood pressure panel with all children optional")
+DBP = ("8462-4", "Diastolic blood pressure", "mm[Hg]")
+BP_PANELS = {"p002": [("2024-03-11T10:00:00+01:00", 132.0, 84.0)]}
+
+# Prescriptions that point at a Medication resource instead of carrying the code
+MEDICATION_REFERENCES = {  # (medication id, display, status, authored on)
+    "p003": [("med-vitd", "Cholecalciferol 1000 UNT Oral Tablet", "active", "2022-11-07")],
 }
 
 ALLERGIES = {  # (snomed, substance, criticality)
@@ -186,6 +205,46 @@ def build_bundle() -> dict:
                     "status": status,
                     "intent": "order",
                     "medicationCodeableConcept": _cc(RXNORM, code, name),
+                    "subject": {"reference": f"Patient/{pid}"},
+                    "authoredOn": authored,
+                }
+            )
+    for pid, panels in BP_PANELS.items():
+        for i, (date, sbp, dbp) in enumerate(panels):
+            add(
+                {
+                    "resourceType": "Observation",
+                    "id": f"{pid}-bp-{i}",
+                    "status": "final",
+                    "code": _cc(LOINC, *BP_PANEL),
+                    "subject": {"reference": f"Patient/{pid}"},
+                    "effectiveDateTime": date,
+                    "component": [
+                        {
+                            "code": _cc(LOINC, code, display),
+                            "valueQuantity": {
+                                "value": v,
+                                "unit": unit,
+                                "system": "http://unitsofmeasure.org",
+                                "code": unit,
+                            },
+                        }
+                        for (code, display, unit), v in ((SBP, sbp), (DBP, dbp))
+                    ],
+                }
+            )
+    for pid, refs in MEDICATION_REFERENCES.items():
+        for i, (med_id, display, status, authored) in enumerate(refs):
+            add(
+                {
+                    "resourceType": "MedicationRequest",
+                    "id": f"{pid}-medref-{i}",
+                    "status": status,
+                    "intent": "order",
+                    "medicationReference": {
+                        "reference": f"Medication/{med_id}",
+                        "display": display,
+                    },
                     "subject": {"reference": f"Patient/{pid}"},
                     "authoredOn": authored,
                 }

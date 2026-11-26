@@ -2,7 +2,7 @@
 MockTransport) that answers searches over the fixture's resources, with paging."""
 
 import json
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
 
 import httpx
 import pytest
@@ -81,24 +81,28 @@ def _mock_fhir_server(bundle: dict, page_size: int = 2):
         rows = [r for r in resources if r["resourceType"] == rtype]
         if "patient" in q:
             rows = [r for r in rows if subject(r) == q["patient"]]
-        if "code" in q:
-            system, code = q["code"].split("|")
-            rows = [
-                r
-                for r in rows
-                if r["code"]["coding"][0]
-                == {**r["code"]["coding"][0], "system": system, "code": code}
-            ]
+        if "combo-code" in q:  # Observation.code or any component code
+            wanted = tuple(q["combo-code"].split("|"))
+
+            def codes(r):
+                nodes = [r["code"], *[c["code"] for c in r.get("component", [])]]
+                return {(n["coding"][0]["system"], n["coding"][0]["code"]) for n in nodes}
+
+            rows = [r for r in rows if wanted in codes(r)]
         if "status" in q:
             rows = [r for r in rows if r.get("status") == q["status"]]
         if "clinical-status" in q:
+            system, code = q["clinical-status"].split("|")
             rows = [
-                r for r in rows if r["clinicalStatus"]["coding"][0]["code"] == q["clinical-status"]
+                r
+                for r in rows
+                if (
+                    r["clinicalStatus"]["coding"][0]["system"],
+                    r["clinicalStatus"]["coding"][0]["code"],
+                )
+                == (system, code)
             ]
-        if "date" in q:
-            rows = [r for r in rows if r["effectiveDateTime"] >= q["date"][2:]]
-        if "onset-date" in q:
-            rows = [r for r in rows if r["onsetDateTime"] >= q["onset-date"][2:]]
+        assert "date" not in q and "onset-date" not in q  # dates are filtered client-side
         if "name" in q:
             words = lambda r: [w.lower() for n in r["name"] for w in [*n["given"], n["family"]]]  # noqa: E731
             rows = [r for r in rows if any(w.startswith(q["name"].lower()) for w in words(r))]
@@ -112,8 +116,8 @@ def _mock_fhir_server(bundle: dict, page_size: int = 2):
             links.append(
                 {
                     "relation": "next",
-                    "url": f"http://hapi.test/fhir/{rtype}?"
-                    + "&".join(f"{k}={v}" for k, v in nxt.items()),
+                    # relative, as some servers return; the store resolves it against its base
+                    "url": f"{rtype}?" + urlencode(nxt),
                 }
             )
         return httpx.Response(
@@ -161,6 +165,56 @@ def test_hapi_requests_use_fhir_search_parameters(hapi):
     hstore, requests = hapi
     hstore.observations("p001", HBA1C, since="2022-01-01", limit=3)
     q = parse_qs(urlparse(str(requests[0].url)).query)
-    assert q["code"] == [f"http://loinc.org|{HBA1C}"] and q["date"] == ["ge2022-01-01"]
-    assert q["patient"] == ["p001"] and q["_sort"] == ["-date"]
-    assert len(requests) > 1  # 12 matches at page size 2 -> followed `next` links
+    assert q["combo-code"] == [f"http://loinc.org|{HBA1C}"] and q["patient"] == ["p001"]
+    assert "date" not in q  # date limits are applied client-side by both backends
+    assert len(requests) > 1  # 12 matches at page size 2 -> followed relative `next` links
+    assert all(str(r.url).startswith("http://hapi.test/fhir/") for r in requests)
+    hstore.conditions("p001", clinical_status="active")
+    q = parse_qs(urlparse(str(requests[-1].url)).query)
+    assert q["clinical-status"] == [
+        "http://terminology.hl7.org/CodeSystem/condition-clinical|active"
+    ]
+
+
+def test_timestamps_use_the_recorded_date(store):
+    # recorded 2023-06-19T23:30:00-05:00 (2023-06-20 in UTC): counts as 2023-06-19
+    got = store.observations("p002", HBA1C, since="2023-06-19")
+    assert [(o.date, o.value) for o in got] == [("2023-06-19", 5.9)]
+    assert store.observations("p002", HBA1C, since="2023-06-20") == []
+
+
+def test_panel_components_are_searchable(store):
+    sbp = store.observations("p002", "8480-6", limit=10)
+    assert [(o.date, o.value) for o in sbp] == [
+        ("2024-03-11", 132.0),
+        ("2023-06-19", 128.0),
+        ("2022-06-13", 124.0),
+    ]
+    assert sbp[0].id == "p002-bp-0#c0"
+    assert [o.value for o in store.observations("p002", "8462-4")] == [84.0]
+
+
+def test_medication_reference_uses_its_display(store):
+    meds = store.medications("p003", status="active")
+    assert "Cholecalciferol 1000 UNT Oral Tablet" in [m.name for m in meds]
+
+
+def test_multi_word_name_search_matches_on_hapi(store, hapi):
+    hstore, _ = hapi
+    assert [p.id for p in hstore.search_patients(name="Maria Gonzalez")] == ["p001"]
+
+
+def test_next_link_to_another_host_is_refused():
+    def handler(request):
+        return httpx.Response(
+            200,
+            json={
+                "resourceType": "Bundle",
+                "entry": [],
+                "link": [{"relation": "next", "url": "http://evil.test/fhir/Patient"}],
+            },
+        )
+
+    hstore = HapiStore("http://hapi.test/fhir", transport=httpx.MockTransport(handler))
+    with pytest.raises(ValueError, match="another host"):
+        hstore.search_patients(name="x")
