@@ -120,3 +120,100 @@ def test_resume_with_a_different_limit_is_refused(tmp_path):
     main([*base, "--limit", "2"])
     with pytest.raises(SystemExit, match="other settings"):
         main([*base, "--limit", "3"])
+
+
+def test_opencode_go_preset_headers_per_question():
+    from fhir_agent_bench.runner import PROVIDERS, USER_AGENT, chat_model_factory
+
+    model_for = chat_model_factory("https://x.test/v1", "m", "k", PROVIDERS["opencode-go"])
+    qs = read_jsonl(QUESTIONS_PATH)[:2]
+    a, b = model_for(qs[0]), model_for(qs[1])
+    assert a.default_headers["User-Agent"] == b.default_headers["User-Agent"] == USER_AGENT
+    assert a.default_headers["x-opencode-session"] != b.default_headers["x-opencode-session"]
+    # the headers reach the underlying OpenAI HTTP client
+    assert (
+        a.root_client.default_headers["x-opencode-session"]
+        == (a.default_headers["x-opencode-session"])
+    )
+    assert a.root_client.default_headers["User-Agent"] == USER_AGENT
+    shared = chat_model_factory("https://x.test/v1", "m", "k")
+    assert shared(qs[0]) is shared(qs[1])  # no session header: one stateless client
+
+
+def test_provider_run_reads_key_from_env_and_never_stores_it(tmp_path, monkeypatch):
+    import fhir_agent_bench.runner as runner
+
+    secret = "sk-test-SECRET-0123456789"
+    monkeypatch.setenv("OPENCODE_API_KEY", secret)
+    seen = {}
+
+    def fake_make_chat_model(base_url, model, api_key="EMPTY", temperature=0.0, headers=None):
+        seen.update(base_url=base_url, model=model, api_key=api_key, headers=headers)
+        return ScriptedModel(script=[final_message([])])
+
+    monkeypatch.setattr(runner, "make_chat_model", fake_make_chat_model)
+    main(
+        [
+            "--name",
+            "og",
+            "--provider",
+            "opencode-go",
+            "--model",
+            "deepseek-v4.1-flash",
+            "--questions",
+            str(QUESTIONS_PATH),
+            "--limit",
+            "2",
+            "--results-dir",
+            str(tmp_path),
+        ]
+    )
+    assert seen["api_key"] == secret and seen["model"] == "deepseek-v4.1-flash"
+    assert seen["base_url"] == "https://opencode.ai/inference/go/openai/v1"
+    assert "x-opencode-session" in seen["headers"]
+    meta = json.loads((tmp_path / "og.json").read_text(encoding="utf-8"))["meta"]
+    assert meta["api_key_env"] == "OPENCODE_API_KEY" and meta["backend"] == "OpenCode Go API"
+    for f in tmp_path.iterdir():
+        assert secret not in f.read_text(encoding="utf-8"), f.name
+
+
+def test_missing_key_variable_is_an_error(tmp_path, monkeypatch):
+    monkeypatch.delenv("OPENCODE_API_KEY", raising=False)
+    with pytest.raises(SystemExit):
+        main(
+            [
+                "--name",
+                "x",
+                "--provider",
+                "opencode-go",
+                "--model",
+                "m",
+                "--results-dir",
+                str(tmp_path),
+            ]
+        )
+
+
+def test_public_url_drops_credentials_and_query():
+    from fhir_agent_bench.runner import _public_url
+
+    assert _public_url("https://user:pw@host.test:8443/v1?key=abc") == "https://host.test:8443/v1"
+    assert _public_url("") == ""
+
+
+def test_provider_with_stub_kind_is_refused(tmp_path):
+    with pytest.raises(SystemExit):
+        main(
+            [
+                "--name",
+                "x",
+                "--provider",
+                "opencode-go",
+                "--model-kind",
+                "stub-gold",
+                "--model",
+                "m",
+                "--results-dir",
+                str(tmp_path),
+            ]
+        )

@@ -19,8 +19,11 @@ import argparse
 import asyncio
 import hashlib
 import json
+import os
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
+from uuid import uuid4
 
 from . import __version__
 from .agent import SYSTEM_PROMPT, Agent, make_chat_model
@@ -114,6 +117,48 @@ async def run_benchmark(
     return summary
 
 
+USER_AGENT = f"fhir-agent-bench/{__version__}"
+
+# Hosted APIs. OpenCode Go serves its models on an OpenAI Chat Completions route and asks
+# clients to send their own user agent and a stable session id per conversation.
+PROVIDERS = {
+    "opencode-go": {
+        "base_url": "https://opencode.ai/inference/go/openai/v1",
+        "api_key_env": "OPENCODE_API_KEY",
+        "session_header": "x-opencode-session",
+        "backend": "OpenCode Go API",
+        "hardware": "hosted API (OpenCode Go)",
+    },
+}
+
+
+def _public_url(url: str) -> str:
+    """The URL without credentials or query string, as stored in run settings."""
+    if not url:
+        return url
+    p = urlsplit(url)
+    host = p.hostname or ""
+    netloc = host + (f":{p.port}" if p.port else "")
+    return urlunsplit((p.scheme, netloc, p.path, "", ""))
+
+
+def chat_model_factory(base_url: str, model: str, api_key: str, preset: dict | None = None):
+    """model_for(question) for an OpenAI-compatible endpoint. Every request carries our user
+    agent; with a session header in the preset, each question (one conversation) gets its own
+    fresh session id, otherwise one stateless client is shared across questions."""
+    preset = preset or {}
+    session_header = preset.get("session_header")
+    if not session_header:
+        chat = make_chat_model(base_url, model, api_key, headers={"User-Agent": USER_AGENT})
+        return lambda q: chat
+
+    def model_for(q):
+        headers = {"User-Agent": USER_AGENT, session_header: str(uuid4())}
+        return make_chat_model(base_url, model, api_key, headers=headers)
+
+    return model_for
+
+
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(
         prog="fab-run", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -121,9 +166,20 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--name", required=True, help="results/<name>.jsonl and .json")
     ap.add_argument("--questions", type=Path, default=Path("questions/fixture.jsonl"))
     ap.add_argument("--fhir-url", default="", help="HAPI FHIR R4 base URL (default: fixture)")
-    ap.add_argument("--model-kind", choices=["stub-gold", "openai"], required=True)
+    ap.add_argument("--model-kind", choices=["stub-gold", "openai"], default="")
+    ap.add_argument(
+        "--provider",
+        choices=sorted(PROVIDERS),
+        default="",
+        help="preset for a hosted API (base URL, headers, key variable)",
+    )
     ap.add_argument("--base-url", default="", help="OpenAI-compatible endpoint (openai kind)")
     ap.add_argument("--model", default="", help="model name on that endpoint")
+    ap.add_argument(
+        "--api-key-env",
+        default="",
+        help="name of the environment variable holding the API key (the key is never stored)",
+    )
     ap.add_argument("--backend", default="", help="serving stack, e.g. 'vllm 0.x' or 'mlx-lm'")
     ap.add_argument("--hardware", default="", help="where the model runs")
     ap.add_argument("--max-steps", type=int, default=8)
@@ -131,8 +187,24 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--results-dir", type=Path, default=Path("results"))
     args = ap.parse_args(argv)
 
+    if not (args.model_kind or args.provider):
+        ap.error("give --model-kind or --provider")
+    if args.provider and args.model_kind == "stub-gold":
+        ap.error("--provider runs a real model; do not combine it with --model-kind stub-gold")
+    preset = PROVIDERS.get(args.provider, {})
+    if preset:
+        args.model_kind = "openai"
+        args.base_url = args.base_url or preset["base_url"]
+        args.api_key_env = args.api_key_env or preset["api_key_env"]
+        args.backend = args.backend or preset["backend"]
+        args.hardware = args.hardware or preset["hardware"]
     if args.model_kind == "openai" and not (args.base_url and args.model and args.hardware):
         ap.error("--model-kind openai needs --base-url, --model and --hardware")
+    api_key = "EMPTY"
+    if args.api_key_env and args.model_kind == "openai":
+        api_key = os.environ.get(args.api_key_env, "")
+        if not api_key:
+            ap.error(f"environment variable {args.api_key_env} is not set")
     questions = read_jsonl(args.questions)
     if args.limit:
         questions = questions[: args.limit]
@@ -142,10 +214,7 @@ def main(argv: list[str] | None = None) -> None:
         def model_for(q):
             return gold_replay_model(q)
     else:
-        chat = make_chat_model(args.base_url, args.model)  # stateless client: safe to share
-
-        def model_for(q):
-            return chat
+        model_for = chat_model_factory(args.base_url, args.model, api_key, preset)
 
     config = {
         "questions": str(args.questions),
@@ -155,7 +224,9 @@ def main(argv: list[str] | None = None) -> None:
         "data": args.fhir_url or "fixture",
         "model_kind": args.model_kind,
         "model": args.model or "gold-replay stub",
-        "base_url": args.base_url,
+        "provider": args.provider,
+        "base_url": _public_url(args.base_url),
+        "api_key_env": args.api_key_env,  # the variable's name only, never its value
         "temperature": 0.0,
         "backend": args.backend,
         "hardware": args.hardware,
