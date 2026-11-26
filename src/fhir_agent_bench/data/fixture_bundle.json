@@ -1,0 +1,1310 @@
+{
+ "resourceType": "Bundle",
+ "type": "collection",
+ "entry": [
+  {
+   "fullUrl": "urn:uuid:Patient-p001",
+   "resource": {
+    "resourceType": "Patient",
+    "id": "p001",
+    "name": [
+     {
+      "family": "Gonzalez",
+      "given": [
+       "Maria"
+      ]
+     }
+    ],
+    "gender": "female",
+    "birthDate": "1958-04-12"
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Patient-p002",
+   "resource": {
+    "resourceType": "Patient",
+    "id": "p002",
+    "name": [
+     {
+      "family": "Okafor",
+      "given": [
+       "James"
+      ]
+     }
+    ],
+    "gender": "male",
+    "birthDate": "1972-11-03"
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Patient-p003",
+   "resource": {
+    "resourceType": "Patient",
+    "id": "p003",
+    "name": [
+     {
+      "family": "Chen",
+      "given": [
+       "Mei"
+      ]
+     }
+    ],
+    "gender": "female",
+    "birthDate": "1990-07-21"
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p001-obs-4548-4-0",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p001-obs-4548-4-0",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "4548-4",
+       "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+      }
+     ],
+     "text": "Hemoglobin A1c/Hemoglobin.total in Blood"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "effectiveDateTime": "2019-02-11",
+    "valueQuantity": {
+     "value": 8.4,
+     "unit": "%",
+     "system": "http://unitsofmeasure.org",
+     "code": "%"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p001-obs-4548-4-1",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p001-obs-4548-4-1",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "4548-4",
+       "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+      }
+     ],
+     "text": "Hemoglobin A1c/Hemoglobin.total in Blood"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "effectiveDateTime": "2019-08-20",
+    "valueQuantity": {
+     "value": 8.1,
+     "unit": "%",
+     "system": "http://unitsofmeasure.org",
+     "code": "%"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p001-obs-4548-4-2",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p001-obs-4548-4-2",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "4548-4",
+       "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+      }
+     ],
+     "text": "Hemoglobin A1c/Hemoglobin.total in Blood"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "effectiveDateTime": "2020-02-03",
+    "valueQuantity": {
+     "value": 7.9,
+     "unit": "%",
+     "system": "http://unitsofmeasure.org",
+     "code": "%"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p001-obs-4548-4-3",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p001-obs-4548-4-3",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "4548-4",
+       "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+      }
+     ],
+     "text": "Hemoglobin A1c/Hemoglobin.total in Blood"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "effectiveDateTime": "2020-09-14",
+    "valueQuantity": {
+     "value": 7.6,
+     "unit": "%",
+     "system": "http://unitsofmeasure.org",
+     "code": "%"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p001-obs-4548-4-4",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p001-obs-4548-4-4",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "4548-4",
+       "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+      }
+     ],
+     "text": "Hemoglobin A1c/Hemoglobin.total in Blood"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "effectiveDateTime": "2021-03-01",
+    "valueQuantity": {
+     "value": 7.4,
+     "unit": "%",
+     "system": "http://unitsofmeasure.org",
+     "code": "%"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p001-obs-4548-4-5",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p001-obs-4548-4-5",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "4548-4",
+       "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+      }
+     ],
+     "text": "Hemoglobin A1c/Hemoglobin.total in Blood"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "effectiveDateTime": "2021-09-27",
+    "valueQuantity": {
+     "value": 7.5,
+     "unit": "%",
+     "system": "http://unitsofmeasure.org",
+     "code": "%"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p001-obs-4548-4-6",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p001-obs-4548-4-6",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "4548-4",
+       "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+      }
+     ],
+     "text": "Hemoglobin A1c/Hemoglobin.total in Blood"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "effectiveDateTime": "2022-03-14",
+    "valueQuantity": {
+     "value": 7.2,
+     "unit": "%",
+     "system": "http://unitsofmeasure.org",
+     "code": "%"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p001-obs-4548-4-7",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p001-obs-4548-4-7",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "4548-4",
+       "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+      }
+     ],
+     "text": "Hemoglobin A1c/Hemoglobin.total in Blood"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "effectiveDateTime": "2022-10-03",
+    "valueQuantity": {
+     "value": 7.0,
+     "unit": "%",
+     "system": "http://unitsofmeasure.org",
+     "code": "%"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p001-obs-4548-4-8",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p001-obs-4548-4-8",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "4548-4",
+       "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+      }
+     ],
+     "text": "Hemoglobin A1c/Hemoglobin.total in Blood"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "effectiveDateTime": "2023-04-17",
+    "valueQuantity": {
+     "value": 6.9,
+     "unit": "%",
+     "system": "http://unitsofmeasure.org",
+     "code": "%"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p001-obs-4548-4-9",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p001-obs-4548-4-9",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "4548-4",
+       "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+      }
+     ],
+     "text": "Hemoglobin A1c/Hemoglobin.total in Blood"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "effectiveDateTime": "2023-11-06",
+    "valueQuantity": {
+     "value": 7.1,
+     "unit": "%",
+     "system": "http://unitsofmeasure.org",
+     "code": "%"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p001-obs-4548-4-10",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p001-obs-4548-4-10",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "4548-4",
+       "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+      }
+     ],
+     "text": "Hemoglobin A1c/Hemoglobin.total in Blood"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "effectiveDateTime": "2024-05-20",
+    "valueQuantity": {
+     "value": 6.8,
+     "unit": "%",
+     "system": "http://unitsofmeasure.org",
+     "code": "%"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p001-obs-4548-4-11",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p001-obs-4548-4-11",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "4548-4",
+       "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+      }
+     ],
+     "text": "Hemoglobin A1c/Hemoglobin.total in Blood"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "effectiveDateTime": "2024-12-02",
+    "valueQuantity": {
+     "value": 6.7,
+     "unit": "%",
+     "system": "http://unitsofmeasure.org",
+     "code": "%"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p001-obs-13457-7-0",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p001-obs-13457-7-0",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "13457-7",
+       "display": "Cholesterol in LDL [Mass/volume] in Serum or Plasma by calculation"
+      }
+     ],
+     "text": "Cholesterol in LDL [Mass/volume] in Serum or Plasma by calculation"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "effectiveDateTime": "2020-02-03",
+    "valueQuantity": {
+     "value": 142.0,
+     "unit": "mg/dL",
+     "system": "http://unitsofmeasure.org",
+     "code": "mg/dL"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p001-obs-13457-7-1",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p001-obs-13457-7-1",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "13457-7",
+       "display": "Cholesterol in LDL [Mass/volume] in Serum or Plasma by calculation"
+      }
+     ],
+     "text": "Cholesterol in LDL [Mass/volume] in Serum or Plasma by calculation"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "effectiveDateTime": "2021-03-01",
+    "valueQuantity": {
+     "value": 118.0,
+     "unit": "mg/dL",
+     "system": "http://unitsofmeasure.org",
+     "code": "mg/dL"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p001-obs-13457-7-2",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p001-obs-13457-7-2",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "13457-7",
+       "display": "Cholesterol in LDL [Mass/volume] in Serum or Plasma by calculation"
+      }
+     ],
+     "text": "Cholesterol in LDL [Mass/volume] in Serum or Plasma by calculation"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "effectiveDateTime": "2022-03-14",
+    "valueQuantity": {
+     "value": 96.0,
+     "unit": "mg/dL",
+     "system": "http://unitsofmeasure.org",
+     "code": "mg/dL"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p001-obs-13457-7-3",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p001-obs-13457-7-3",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "13457-7",
+       "display": "Cholesterol in LDL [Mass/volume] in Serum or Plasma by calculation"
+      }
+     ],
+     "text": "Cholesterol in LDL [Mass/volume] in Serum or Plasma by calculation"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "effectiveDateTime": "2023-04-17",
+    "valueQuantity": {
+     "value": 101.0,
+     "unit": "mg/dL",
+     "system": "http://unitsofmeasure.org",
+     "code": "mg/dL"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p001-obs-8480-6-0",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p001-obs-8480-6-0",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "8480-6",
+       "display": "Systolic blood pressure"
+      }
+     ],
+     "text": "Systolic blood pressure"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "effectiveDateTime": "2023-04-17",
+    "valueQuantity": {
+     "value": 148.0,
+     "unit": "mm[Hg]",
+     "system": "http://unitsofmeasure.org",
+     "code": "mm[Hg]"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p001-obs-8480-6-1",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p001-obs-8480-6-1",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "8480-6",
+       "display": "Systolic blood pressure"
+      }
+     ],
+     "text": "Systolic blood pressure"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "effectiveDateTime": "2024-05-20",
+    "valueQuantity": {
+     "value": 136.0,
+     "unit": "mm[Hg]",
+     "system": "http://unitsofmeasure.org",
+     "code": "mm[Hg]"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p001-obs-8480-6-2",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p001-obs-8480-6-2",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "8480-6",
+       "display": "Systolic blood pressure"
+      }
+     ],
+     "text": "Systolic blood pressure"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "effectiveDateTime": "2024-12-02",
+    "valueQuantity": {
+     "value": 131.0,
+     "unit": "mm[Hg]",
+     "system": "http://unitsofmeasure.org",
+     "code": "mm[Hg]"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p002-obs-4548-4-0",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p002-obs-4548-4-0",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "4548-4",
+       "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+      }
+     ],
+     "text": "Hemoglobin A1c/Hemoglobin.total in Blood"
+    },
+    "subject": {
+     "reference": "Patient/p002"
+    },
+    "effectiveDateTime": "2021-06-07",
+    "valueQuantity": {
+     "value": 5.6,
+     "unit": "%",
+     "system": "http://unitsofmeasure.org",
+     "code": "%"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p002-obs-4548-4-1",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p002-obs-4548-4-1",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "4548-4",
+       "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+      }
+     ],
+     "text": "Hemoglobin A1c/Hemoglobin.total in Blood"
+    },
+    "subject": {
+     "reference": "Patient/p002"
+    },
+    "effectiveDateTime": "2022-06-13",
+    "valueQuantity": {
+     "value": 5.8,
+     "unit": "%",
+     "system": "http://unitsofmeasure.org",
+     "code": "%"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p002-obs-4548-4-2",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p002-obs-4548-4-2",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "4548-4",
+       "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+      }
+     ],
+     "text": "Hemoglobin A1c/Hemoglobin.total in Blood"
+    },
+    "subject": {
+     "reference": "Patient/p002"
+    },
+    "effectiveDateTime": "2023-06-19",
+    "valueQuantity": {
+     "value": 5.9,
+     "unit": "%",
+     "system": "http://unitsofmeasure.org",
+     "code": "%"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p002-obs-8480-6-0",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p002-obs-8480-6-0",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "8480-6",
+       "display": "Systolic blood pressure"
+      }
+     ],
+     "text": "Systolic blood pressure"
+    },
+    "subject": {
+     "reference": "Patient/p002"
+    },
+    "effectiveDateTime": "2022-06-13",
+    "valueQuantity": {
+     "value": 124.0,
+     "unit": "mm[Hg]",
+     "system": "http://unitsofmeasure.org",
+     "code": "mm[Hg]"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p002-obs-8480-6-1",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p002-obs-8480-6-1",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "8480-6",
+       "display": "Systolic blood pressure"
+      }
+     ],
+     "text": "Systolic blood pressure"
+    },
+    "subject": {
+     "reference": "Patient/p002"
+    },
+    "effectiveDateTime": "2023-06-19",
+    "valueQuantity": {
+     "value": 128.0,
+     "unit": "mm[Hg]",
+     "system": "http://unitsofmeasure.org",
+     "code": "mm[Hg]"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p003-obs-3016-3-0",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p003-obs-3016-3-0",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "3016-3",
+       "display": "Thyrotropin [Units/volume] in Serum or Plasma"
+      }
+     ],
+     "text": "Thyrotropin [Units/volume] in Serum or Plasma"
+    },
+    "subject": {
+     "reference": "Patient/p003"
+    },
+    "effectiveDateTime": "2020-01-20",
+    "valueQuantity": {
+     "value": 9.8,
+     "unit": "m[IU]/L",
+     "system": "http://unitsofmeasure.org",
+     "code": "m[IU]/L"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p003-obs-3016-3-1",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p003-obs-3016-3-1",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "3016-3",
+       "display": "Thyrotropin [Units/volume] in Serum or Plasma"
+      }
+     ],
+     "text": "Thyrotropin [Units/volume] in Serum or Plasma"
+    },
+    "subject": {
+     "reference": "Patient/p003"
+    },
+    "effectiveDateTime": "2020-05-04",
+    "valueQuantity": {
+     "value": 5.1,
+     "unit": "m[IU]/L",
+     "system": "http://unitsofmeasure.org",
+     "code": "m[IU]/L"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p003-obs-3016-3-2",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p003-obs-3016-3-2",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "3016-3",
+       "display": "Thyrotropin [Units/volume] in Serum or Plasma"
+      }
+     ],
+     "text": "Thyrotropin [Units/volume] in Serum or Plasma"
+    },
+    "subject": {
+     "reference": "Patient/p003"
+    },
+    "effectiveDateTime": "2021-01-18",
+    "valueQuantity": {
+     "value": 2.4,
+     "unit": "m[IU]/L",
+     "system": "http://unitsofmeasure.org",
+     "code": "m[IU]/L"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p003-obs-3016-3-3",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p003-obs-3016-3-3",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "3016-3",
+       "display": "Thyrotropin [Units/volume] in Serum or Plasma"
+      }
+     ],
+     "text": "Thyrotropin [Units/volume] in Serum or Plasma"
+    },
+    "subject": {
+     "reference": "Patient/p003"
+    },
+    "effectiveDateTime": "2022-01-24",
+    "valueQuantity": {
+     "value": 2.1,
+     "unit": "m[IU]/L",
+     "system": "http://unitsofmeasure.org",
+     "code": "m[IU]/L"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Observation-p003-obs-3016-3-4",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "p003-obs-3016-3-4",
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "3016-3",
+       "display": "Thyrotropin [Units/volume] in Serum or Plasma"
+      }
+     ],
+     "text": "Thyrotropin [Units/volume] in Serum or Plasma"
+    },
+    "subject": {
+     "reference": "Patient/p003"
+    },
+    "effectiveDateTime": "2023-02-06",
+    "valueQuantity": {
+     "value": 1.9,
+     "unit": "m[IU]/L",
+     "system": "http://unitsofmeasure.org",
+     "code": "m[IU]/L"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Condition-p001-cond-0",
+   "resource": {
+    "resourceType": "Condition",
+    "id": "p001-cond-0",
+    "clinicalStatus": {
+     "coding": [
+      {
+       "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+       "code": "active",
+       "display": "active"
+      }
+     ],
+     "text": "active"
+    },
+    "code": {
+     "coding": [
+      {
+       "system": "http://snomed.info/sct",
+       "code": "44054006",
+       "display": "Diabetes mellitus type 2"
+      }
+     ],
+     "text": "Diabetes mellitus type 2"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "onsetDateTime": "2015-03-02"
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Condition-p001-cond-1",
+   "resource": {
+    "resourceType": "Condition",
+    "id": "p001-cond-1",
+    "clinicalStatus": {
+     "coding": [
+      {
+       "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+       "code": "active",
+       "display": "active"
+      }
+     ],
+     "text": "active"
+    },
+    "code": {
+     "coding": [
+      {
+       "system": "http://snomed.info/sct",
+       "code": "38341003",
+       "display": "Hypertensive disorder"
+      }
+     ],
+     "text": "Hypertensive disorder"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "onsetDateTime": "2018-06-10"
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Condition-p001-cond-2",
+   "resource": {
+    "resourceType": "Condition",
+    "id": "p001-cond-2",
+    "clinicalStatus": {
+     "coding": [
+      {
+       "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+       "code": "resolved",
+       "display": "resolved"
+      }
+     ],
+     "text": "resolved"
+    },
+    "code": {
+     "coding": [
+      {
+       "system": "http://snomed.info/sct",
+       "code": "10509002",
+       "display": "Acute bronchitis"
+      }
+     ],
+     "text": "Acute bronchitis"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "onsetDateTime": "2021-01-15"
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Condition-p002-cond-0",
+   "resource": {
+    "resourceType": "Condition",
+    "id": "p002-cond-0",
+    "clinicalStatus": {
+     "coding": [
+      {
+       "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+       "code": "active",
+       "display": "active"
+      }
+     ],
+     "text": "active"
+    },
+    "code": {
+     "coding": [
+      {
+       "system": "http://snomed.info/sct",
+       "code": "195967001",
+       "display": "Asthma"
+      }
+     ],
+     "text": "Asthma"
+    },
+    "subject": {
+     "reference": "Patient/p002"
+    },
+    "onsetDateTime": "2010-09-01"
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Condition-p002-cond-1",
+   "resource": {
+    "resourceType": "Condition",
+    "id": "p002-cond-1",
+    "clinicalStatus": {
+     "coding": [
+      {
+       "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+       "code": "resolved",
+       "display": "resolved"
+      }
+     ],
+     "text": "resolved"
+    },
+    "code": {
+     "coding": [
+      {
+       "system": "http://snomed.info/sct",
+       "code": "444814009",
+       "display": "Viral sinusitis"
+      }
+     ],
+     "text": "Viral sinusitis"
+    },
+    "subject": {
+     "reference": "Patient/p002"
+    },
+    "onsetDateTime": "2022-12-05"
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Condition-p003-cond-0",
+   "resource": {
+    "resourceType": "Condition",
+    "id": "p003-cond-0",
+    "clinicalStatus": {
+     "coding": [
+      {
+       "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+       "code": "active",
+       "display": "active"
+      }
+     ],
+     "text": "active"
+    },
+    "code": {
+     "coding": [
+      {
+       "system": "http://snomed.info/sct",
+       "code": "40930008",
+       "display": "Hypothyroidism"
+      }
+     ],
+     "text": "Hypothyroidism"
+    },
+    "subject": {
+     "reference": "Patient/p003"
+    },
+    "onsetDateTime": "2020-02-01"
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:Condition-p003-cond-1",
+   "resource": {
+    "resourceType": "Condition",
+    "id": "p003-cond-1",
+    "clinicalStatus": {
+     "coding": [
+      {
+       "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+       "code": "resolved",
+       "display": "resolved"
+      }
+     ],
+     "text": "resolved"
+    },
+    "code": {
+     "coding": [
+      {
+       "system": "http://snomed.info/sct",
+       "code": "37796009",
+       "display": "Migraine"
+      }
+     ],
+     "text": "Migraine"
+    },
+    "subject": {
+     "reference": "Patient/p003"
+    },
+    "onsetDateTime": "2019-05-10"
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:MedicationRequest-p001-med-0",
+   "resource": {
+    "resourceType": "MedicationRequest",
+    "id": "p001-med-0",
+    "status": "active",
+    "intent": "order",
+    "medicationCodeableConcept": {
+     "coding": [
+      {
+       "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+       "code": "860975",
+       "display": "Metformin hydrochloride 500 MG Oral Tablet"
+      }
+     ],
+     "text": "Metformin hydrochloride 500 MG Oral Tablet"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "authoredOn": "2015-03-02"
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:MedicationRequest-p001-med-1",
+   "resource": {
+    "resourceType": "MedicationRequest",
+    "id": "p001-med-1",
+    "status": "active",
+    "intent": "order",
+    "medicationCodeableConcept": {
+     "coding": [
+      {
+       "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+       "code": "314076",
+       "display": "Lisinopril 10 MG Oral Tablet"
+      }
+     ],
+     "text": "Lisinopril 10 MG Oral Tablet"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "authoredOn": "2018-06-10"
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:MedicationRequest-p001-med-2",
+   "resource": {
+    "resourceType": "MedicationRequest",
+    "id": "p001-med-2",
+    "status": "stopped",
+    "intent": "order",
+    "medicationCodeableConcept": {
+     "coding": [
+      {
+       "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+       "code": "617312",
+       "display": "Atorvastatin 20 MG Oral Tablet"
+      }
+     ],
+     "text": "Atorvastatin 20 MG Oral Tablet"
+    },
+    "subject": {
+     "reference": "Patient/p001"
+    },
+    "authoredOn": "2020-02-03"
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:MedicationRequest-p002-med-0",
+   "resource": {
+    "resourceType": "MedicationRequest",
+    "id": "p002-med-0",
+    "status": "active",
+    "intent": "order",
+    "medicationCodeableConcept": {
+     "coding": [
+      {
+       "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+       "code": "745679",
+       "display": "Albuterol 0.09 MG/ACTUAT Metered Dose Inhaler"
+      }
+     ],
+     "text": "Albuterol 0.09 MG/ACTUAT Metered Dose Inhaler"
+    },
+    "subject": {
+     "reference": "Patient/p002"
+    },
+    "authoredOn": "2010-09-01"
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:MedicationRequest-p002-med-1",
+   "resource": {
+    "resourceType": "MedicationRequest",
+    "id": "p002-med-1",
+    "status": "active",
+    "intent": "order",
+    "medicationCodeableConcept": {
+     "coding": [
+      {
+       "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+       "code": "896209",
+       "display": "Fluticasone propionate 0.11 MG/ACTUAT Metered Dose Inhaler"
+      }
+     ],
+     "text": "Fluticasone propionate 0.11 MG/ACTUAT Metered Dose Inhaler"
+    },
+    "subject": {
+     "reference": "Patient/p002"
+    },
+    "authoredOn": "2016-04-11"
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:MedicationRequest-p003-med-0",
+   "resource": {
+    "resourceType": "MedicationRequest",
+    "id": "p003-med-0",
+    "status": "active",
+    "intent": "order",
+    "medicationCodeableConcept": {
+     "coding": [
+      {
+       "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+       "code": "966247",
+       "display": "Levothyroxine Sodium 0.075 MG Oral Tablet"
+      }
+     ],
+     "text": "Levothyroxine Sodium 0.075 MG Oral Tablet"
+    },
+    "subject": {
+     "reference": "Patient/p003"
+    },
+    "authoredOn": "2020-02-01"
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:MedicationRequest-p003-med-1",
+   "resource": {
+    "resourceType": "MedicationRequest",
+    "id": "p003-med-1",
+    "status": "completed",
+    "intent": "order",
+    "medicationCodeableConcept": {
+     "coding": [
+      {
+       "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+       "code": "310965",
+       "display": "Ibuprofen 200 MG Oral Tablet"
+      }
+     ],
+     "text": "Ibuprofen 200 MG Oral Tablet"
+    },
+    "subject": {
+     "reference": "Patient/p003"
+    },
+    "authoredOn": "2019-05-10"
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:AllergyIntolerance-p001-allergy-0",
+   "resource": {
+    "resourceType": "AllergyIntolerance",
+    "id": "p001-allergy-0",
+    "code": {
+     "coding": [
+      {
+       "system": "http://snomed.info/sct",
+       "code": "91936005",
+       "display": "Allergy to penicillin"
+      }
+     ],
+     "text": "Allergy to penicillin"
+    },
+    "criticality": "high",
+    "patient": {
+     "reference": "Patient/p001"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:AllergyIntolerance-p002-allergy-0",
+   "resource": {
+    "resourceType": "AllergyIntolerance",
+    "id": "p002-allergy-0",
+    "code": {
+     "coding": [
+      {
+       "system": "http://snomed.info/sct",
+       "code": "91935009",
+       "display": "Allergy to peanut"
+      }
+     ],
+     "text": "Allergy to peanut"
+    },
+    "criticality": "high",
+    "patient": {
+     "reference": "Patient/p002"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:AllergyIntolerance-p002-allergy-1",
+   "resource": {
+    "resourceType": "AllergyIntolerance",
+    "id": "p002-allergy-1",
+    "code": {
+     "coding": [
+      {
+       "system": "http://snomed.info/sct",
+       "code": "300916003",
+       "display": "Latex allergy"
+      }
+     ],
+     "text": "Latex allergy"
+    },
+    "criticality": "low",
+    "patient": {
+     "reference": "Patient/p002"
+    }
+   }
+  }
+ ]
+}
