@@ -61,12 +61,7 @@ async def test_search_then_query(server, audit_path):
     assert [o["value"] for o in obs["results"]] == [6.7, 6.8, 7.1]
     rows = _audit(audit_path)
     assert [r["tool"] for r in rows] == ["search_patients", "get_observations"]
-    assert rows[1]["args"] == {
-        "patient_id": "p001",
-        "loinc_code": "4548-4",
-        "since": "",
-        "limit": 3,
-    }
+    assert rows[1]["args"] == {"patient_id": "p001", "loinc_code": "4548-4", "limit": 3}
     assert rows[1]["count"] == 3 and rows[1]["error"] is None and rows[1]["duration_ms"] >= 0
 
 
@@ -128,3 +123,48 @@ async def test_backend_failure_is_reported_and_audited(audit_path):
         res = await c.call_tool("get_allergies", {"patient_id": "p001"})
     assert res.is_error and "FHIR backend error" in res.content[0].text
     assert "ConnectionError" in _audit(audit_path)[0]["error"]
+
+
+async def test_tool_schemas_show_the_real_parameters(server):
+    async with Client(server) as c:
+        tools = {t.name: t for t in (await c.list_tools()).tools}
+    obs = tools["get_observations"].input_schema
+    assert set(obs["properties"]) == {"patient_id", "loinc_code", "since", "limit"}
+    assert set(obs["required"]) == {"patient_id", "loinc_code"}
+    assert obs["properties"]["limit"]["type"] == "integer"
+    assert set(tools["search_patients"].input_schema["properties"]) == {"name", "birth_date"}
+
+
+@pytest.mark.parametrize(
+    ("tool", "args"),
+    [
+        ("get_observations", {"loinc_code": "4548-4"}),  # missing patient_id
+        ("get_observations", {"patient_id": "p001", "loinc_code": "4548-4", "limit": True}),
+        ("get_observations", {"patient_id": "p001", "loinc_code": "4548-4", "limit": "5"}),
+        ("delete_patient", {"patient_id": "p001"}),  # no such tool
+    ],
+)
+async def test_calls_rejected_by_the_sdk_are_audited_too(server, audit_path, tool, args):
+    async with Client(server) as c:
+        res = await c.call_tool(tool, args)
+    assert res.is_error
+    [row] = _audit(audit_path)
+    assert row["tool"] == tool and row["count"] is None and row["error"]
+
+
+async def test_audit_truncates_long_values(server, audit_path):
+    async with Client(server) as c:
+        await c.call_tool("get_patient", {"patient_id": "x" * 5000})
+    [row] = _audit(audit_path)
+    assert len(row["args"]["patient_id"]) <= 203 and len(row["error"]) <= 203
+
+
+def test_patient_id_with_trailing_newline_is_rejected():
+    from mcp.server.mcpserver.exceptions import ToolError
+
+    from fhir_agent_bench.server import _date, _patient_id
+
+    with pytest.raises(ToolError):
+        _patient_id("p001\n")
+    with pytest.raises(ToolError):
+        _date("２０２４-01-01", "since")  # full-width digits

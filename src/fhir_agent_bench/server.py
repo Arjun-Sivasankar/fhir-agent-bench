@@ -22,12 +22,14 @@ from pathlib import Path
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
+from pydantic import StrictInt
 
 from .store import BundleStore, FhirStore, HapiStore, as_dicts
 
-ID = re.compile(r"^[A-Za-z0-9\-.]{1,64}$")  # FHIR id rule
-LOINC = re.compile(r"^\d{1,7}-\d$")
-NAME = re.compile(r"^[^\W\d_](?:[^\W\d_]|[ '.\-])*$")  # letters, spaces, ' . -
+ID = re.compile(r"[A-Za-z0-9\-.]{1,64}")  # FHIR id rule (used with fullmatch)
+LOINC = re.compile(r"[0-9]{1,7}-[0-9]")
+ISO_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")  # ASCII digits only
+NAME = re.compile(r"[^\W\d_](?:[^\W\d_]|[ '.\-])*")  # letters, spaces, ' . -
 MED_STATUS = {
     "active",
     "on-hold",
@@ -45,8 +47,24 @@ READ_ONLY = ToolAnnotations(
 )
 
 
+MAX_LOGGED_CHARS = 200
+
+
+def _clip(value):
+    """Values as logged: long strings truncated, anything non-JSON stringified."""
+    if isinstance(value, str):
+        return value if len(value) <= MAX_LOGGED_CHARS else value[:MAX_LOGGED_CHARS] + "..."
+    if isinstance(value, bool | int | float) or value is None:
+        return value
+    return _clip(repr(value))
+
+
 class AuditLog:
-    """Append-only JSONL audit trail of tool calls (thread-safe)."""
+    """Append-only JSONL audit trail of tool calls (thread-safe).
+
+    Fail-closed: if the audit line cannot be written, the call fails instead of returning data
+    that was never recorded.
+    """
 
     def __init__(self, path: Path | None):
         self.path = path
@@ -60,10 +78,10 @@ class AuditLog:
         line = json.dumps(
             {
                 "time": datetime.now(UTC).isoformat(timespec="milliseconds"),
-                "tool": tool,
-                "args": args,
+                "tool": _clip(tool),
+                "args": {_clip(k): _clip(v) for k, v in (args or {}).items()},
                 "count": count,
-                "error": error,
+                "error": _clip(error) if error else None,
                 "duration_ms": round(ms, 2),
             }
         )
@@ -71,24 +89,66 @@ class AuditLog:
             f.write(line + "\n")
 
 
+def _count(result) -> int | None:
+    """Result count from a tool result's structured content ({"count": ...} or wrapped)."""
+    sc = getattr(result, "structured_content", None)
+    if not sc:  # plain dict results arrive as one JSON text block
+        try:
+            sc = json.loads(result.content[0].text)
+        except (AttributeError, IndexError, TypeError, ValueError):
+            return None
+    sc = sc.get("result", sc) if isinstance(sc, dict) else {}
+    return sc.get("count") if isinstance(sc, dict) else None
+
+
+class AuditedServer(MCPServer):
+    """MCPServer that audits at the call_tool entry point, so every call is recorded - including
+    ones the SDK rejects before the tool runs (unknown tool, missing or mistyped arguments)."""
+
+    def __init__(self, *args, audit: AuditLog, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.audit = audit
+
+    async def call_tool(self, name, arguments, context=None):
+        t0 = time.perf_counter()
+        try:
+            result = await super().call_tool(name, arguments, context)
+        except Exception as e:  # noqa: BLE001  - record every failure, then let the SDK report it
+            self.audit.record(
+                name, arguments, None, f"{type(e).__name__}: {e}", (time.perf_counter() - t0) * 1e3
+            )
+            raise
+        error = None
+        if getattr(result, "is_error", False):
+            error = " ".join(getattr(c, "text", "") for c in result.content) or "tool error"
+        self.audit.record(
+            name,
+            arguments,
+            None if error else _count(result),
+            error,
+            (time.perf_counter() - t0) * 1e3,
+        )
+        return result
+
+
 # ---------------------------------------------------------------- validation
 
 
 def _patient_id(value: str) -> str:
-    if not ID.match(value or ""):
-        raise ToolError(f"invalid patient_id {value!r}: use the id returned by search_patients")
+    if not ID.fullmatch(value or ""):
+        raise ToolError(f"invalid patient_id {_clip(value)!r}: use the id from search_patients")
     return value
 
 
 def _date(value: str, field: str) -> str | None:
     if not value:
         return None
+    if not ISO_DATE.fullmatch(value):
+        raise ToolError(f"invalid {field} {_clip(value)!r}: use an ISO date YYYY-MM-DD")
     try:
         date.fromisoformat(value)
     except ValueError:
-        raise ToolError(f"invalid {field} {value!r}: use an ISO date YYYY-MM-DD") from None
-    if len(value) != 10:
-        raise ToolError(f"invalid {field} {value!r}: use an ISO date YYYY-MM-DD")
+        raise ToolError(f"invalid {field} {value!r}: not a real date") from None
     return value
 
 
@@ -104,9 +164,9 @@ def _choice(value: str, allowed: set[str], field: str) -> str | None:
 
 
 def create_server(store: FhirStore, audit: AuditLog | None = None) -> MCPServer:
-    audit = audit or AuditLog(None)
-    server = MCPServer(
+    server = AuditedServer(
         "fhir-agent-bench",
+        audit=audit or AuditLog(None),
         instructions=(
             "Read-only access to synthetic FHIR patient records. Find the patient first with "
             "search_patients, then query by patient_id. Dates are ISO YYYY-MM-DD; lab codes are "
@@ -115,22 +175,17 @@ def create_server(store: FhirStore, audit: AuditLog | None = None) -> MCPServer:
     )
 
     def audited(fn):
-        """Record every call with its arguments, result count or error, and duration."""
+        """Turn backend failures (FHIR server down, bad response) into clear tool errors.
+        Auditing itself happens in AuditedServer.call_tool."""
 
         @functools.wraps(fn)
         def wrapper(**kwargs):
-            t0 = time.perf_counter()
             try:
-                out = fn(**kwargs)
-            except ToolError as e:
-                audit.record(fn.__name__, kwargs, None, str(e), (time.perf_counter() - t0) * 1e3)
+                return fn(**kwargs)
+            except ToolError:
                 raise
-            except Exception as e:  # noqa: BLE001  - backend failure: audit, then report
-                msg = f"FHIR backend error: {type(e).__name__}: {e}"
-                audit.record(fn.__name__, kwargs, None, msg, (time.perf_counter() - t0) * 1e3)
-                raise ToolError(msg) from e
-            audit.record(fn.__name__, kwargs, out["count"], None, (time.perf_counter() - t0) * 1e3)
-            return out
+            except Exception as e:  # noqa: BLE001
+                raise ToolError(f"FHIR backend error: {type(e).__name__}: {e}") from e
 
         return wrapper
 
@@ -146,7 +201,7 @@ def create_server(store: FhirStore, audit: AuditLog | None = None) -> MCPServer:
         name = name.strip()
         if not name and not birth_date:
             raise ToolError("give a name, a birth_date or both")
-        if name and (len(name) > 100 or not NAME.match(name)):
+        if name and (len(name) > 100 or not NAME.fullmatch(name)):
             raise ToolError(f"invalid name {name!r}: letters, spaces, apostrophes and hyphens only")
         return result(store.search_patients(name or None, _date(birth_date, "birth_date")))
 
@@ -160,12 +215,12 @@ def create_server(store: FhirStore, audit: AuditLog | None = None) -> MCPServer:
     @server.tool(annotations=READ_ONLY)
     @audited
     def get_observations(
-        patient_id: str, loinc_code: str, since: str = "", limit: int = 10
+        patient_id: str, loinc_code: str, since: str = "", limit: StrictInt = 10
     ) -> dict:
         """Lab results and vital signs for one LOINC code, newest first. `since` (YYYY-MM-DD) is
         inclusive; `limit` is 1-100. Examples: 4548-4 HbA1c, 13457-7 LDL cholesterol,
         3016-3 TSH, 8480-6 systolic and 8462-4 diastolic blood pressure."""
-        if not LOINC.match(loinc_code or ""):
+        if not LOINC.fullmatch(loinc_code or ""):
             raise ToolError(f"invalid loinc_code {loinc_code!r}: a LOINC code such as 4548-4")
         if not 1 <= limit <= MAX_LIMIT:
             raise ToolError(f"invalid limit {limit}: 1 to {MAX_LIMIT}")
@@ -210,7 +265,11 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--audit-log", default="logs/audit.jsonl", type=Path)
     args = ap.parse_args(argv)
     store = HapiStore(args.fhir_url) if args.fhir_url else BundleStore.fixture()
-    create_server(store, AuditLog(args.audit_log)).run("stdio")
+    try:
+        create_server(store, AuditLog(args.audit_log)).run("stdio")
+    finally:
+        if isinstance(store, HapiStore):
+            store.close()
 
 
 if __name__ == "__main__":
