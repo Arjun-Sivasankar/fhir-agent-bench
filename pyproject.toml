@@ -18,6 +18,7 @@ dev = ["pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.6", "pre-commit>=3.7"]
 
 [project.scripts]
 fhir-mcp = "fhir_agent_bench.server:main"
+fab-questions = "fhir_agent_bench.questions:main"
 
 [build-system]
 requires = ["hatchling"]
