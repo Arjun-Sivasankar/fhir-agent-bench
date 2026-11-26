@@ -86,7 +86,7 @@ OBSERVATIONS = {
 CONDITIONS = {  # (snomed, name, clinical status, onset date)
     "p001": [
         ("44054006", "Diabetes mellitus type 2", "active", "2015-03-02"),
-        ("38341003", "Hypertensive disorder", "active", "2018-06-10"),
+        ("38341003", "Hypertension", "active", "2018-06-10"),
         ("10509002", "Acute bronchitis", "resolved", "2021-01-15"),
     ],
     "p002": [

@@ -168,3 +168,9 @@ def test_patient_id_with_trailing_newline_is_rejected():
         _patient_id("p001\n")
     with pytest.raises(ToolError):
         _date("２０２４-01-01", "since")  # full-width digits
+
+
+async def test_synthea_style_names_are_accepted(server):
+    async with Client(server) as c:
+        res = await c.call_tool("search_patients", {"name": "Abe604 Ziemann110"})
+    assert not res.is_error and _payload(res)["count"] == 0
