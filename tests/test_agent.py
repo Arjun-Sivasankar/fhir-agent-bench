@@ -131,3 +131,111 @@ def test_prompt_and_specs():
         "description": "d",
         "parameters": {"type": "object", "properties": {}},
     }
+
+
+async def test_missing_and_repeated_tool_call_ids_are_made_unique(server):
+    from langchain_core.messages import AIMessage
+
+    def same_id(name, args):
+        return AIMessage(content="", tool_calls=[{"name": name, "args": args, "id": "0"}])
+
+    model = ScriptedModel(
+        script=[
+            same_id("search_patients", {"name": "Mei Chen"}),
+            same_id("get_allergies", {"patient_id": "p003"}),
+            AIMessage(
+                content="",
+                tool_calls=[{"name": "get_patient", "args": {"patient_id": "p003"}, "id": ""}],
+            ),
+            final_message([]),
+        ]
+    )
+    run = await Agent(model, server).run("Does Mei Chen have allergies?")
+    assert [c["tool"] for c in run["calls"]] == ["search_patients", "get_allergies", "get_patient"]
+    assert run["format_ok"] and run["answer_items"] == []
+
+
+async def test_parallel_tool_calls_in_one_turn(server):
+    from langchain_core.messages import AIMessage
+
+    both = AIMessage(
+        content="",
+        tool_calls=[
+            {
+                "name": "get_conditions",
+                "args": {"patient_id": "p002", "clinical_status": "active"},
+                "id": "a",
+            },
+            {
+                "name": "get_medications",
+                "args": {"patient_id": "p002", "status": "active"},
+                "id": "b",
+            },
+        ],
+    )
+    got = []
+
+    def answer(messages):
+        got.extend(m.content for m in messages[-2:])
+        return final_message(["Asthma", "albuterol", "fluticasone"])
+
+    run = await Agent(ScriptedModel(script=[both, answer]), server).run("x")
+    assert [t["count"] for t in run["trace"]] == [1, 2] and run["steps"] == 2
+    assert all('"count"' in g for g in got)  # both results reached the model
+
+
+async def test_content_blocks_keep_only_text(server):
+    from langchain_core.messages import AIMessage
+
+    blocks = AIMessage(
+        content=[
+            {"type": "thinking", "thinking": '{"answer": ["wrong"]}'},
+            {"type": "text", "text": 'Done. {"answer": ["right"], "refused": false}'},
+        ]
+    )
+    run = await Agent(ScriptedModel(script=[blocks]), server).run("x")
+    assert run["answer_items"] == ["right"]
+
+
+async def test_transport_failure_becomes_a_tool_error(server, monkeypatch):
+    import fhir_agent_bench.agent as agent_mod
+
+    async def boom(self, name, args, *a, **k):
+        raise ConnectionError("pipe closed")
+
+    monkeypatch.setattr(agent_mod.Client, "call_tool", boom)
+    seen = []
+
+    def after(messages):
+        seen.append(messages[-1].content)
+        return final_message([])
+
+    model = ScriptedModel(
+        script=[tool_call_message("get_allergies", {"patient_id": "p001"}, "c"), after]
+    )
+    run = await Agent(model, server).run("x")
+    assert "ConnectionError" in seen[0] and run["trace"][0]["is_error"] and run["format_ok"]
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        (
+            '<think>maybe {"answer": ["no"]}</think>\n{"answer": ["yes"], "refused": false}',
+            (["yes"], False, True),
+        ),
+        ('{"answer": ["dose {x}", "y"], "refused": false}', (["dose {x}", "y"], False, True)),
+        ('{"answer": [{"value": 6.7}], "refused": false}', (["{'value': 6.7}"], False, True)),
+        (
+            '{"answer": ["a"], "refused": false}\n<think>unterminated {"answer": ["b"]}',
+            (["a"], False, True),
+        ),
+    ],
+)
+def test_parse_final_robustness(text, expected):
+    assert parse_final(text) == expected
+
+
+async def test_latency_excludes_session_setup(server):
+    run = await Agent(ScriptedModel(script=[final_message([])]), server).run("x")
+    assert run["setup_ms"] > 0 and run["latency_ms"] >= 0

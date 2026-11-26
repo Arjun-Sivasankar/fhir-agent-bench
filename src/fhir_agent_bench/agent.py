@@ -18,6 +18,7 @@ import json
 import re
 import time
 from typing import Any
+from uuid import uuid4
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.graph import END, START, MessagesState, StateGraph
@@ -58,14 +59,20 @@ def mcp_tool_specs(tools) -> list[dict]:
     ]
 
 
-_JSON_OBJECT = re.compile(r"\{[^{}]*\}", re.S)
+_THINK = re.compile(r"<think>.*?(</think>|$)", re.S | re.I)
+_DECODER = json.JSONDecoder()
 
 
 def parse_final(text: str) -> tuple[list[str] | None, bool, bool]:
-    """(answer items, refused, format_ok) from the last JSON object with an "answer" key."""
-    for raw in reversed(_JSON_OBJECT.findall(text or "")):
+    """(answer items, refused, format_ok) from the last JSON object with an "answer" key.
+
+    Reasoning blocks (<think>...</think>) are removed first; JSON objects are decoded properly
+    (nested braces and items containing braces are fine), scanning from the end."""
+    text = _THINK.sub("", text or "")
+    starts = [i for i, ch in enumerate(text) if ch == "{"]
+    for i in reversed(starts):
         try:
-            obj = json.loads(raw)
+            obj, _ = _DECODER.raw_decode(text, i)
         except json.JSONDecodeError:
             continue
         if not isinstance(obj, dict) or "answer" not in obj:
@@ -76,6 +83,15 @@ def parse_final(text: str) -> tuple[list[str] | None, bool, bool]:
             return None, False, False
         return [str(i) for i in items], refused, True
     return None, False, False
+
+
+def _text_content(content) -> str:
+    """Message content as text; for content blocks, only the text blocks."""
+    if isinstance(content, str):
+        return content
+    return " ".join(
+        b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text"
+    )
 
 
 def _result_count(text: str) -> int | None:
@@ -101,32 +117,57 @@ class Agent:
         self.system_prompt = system_prompt
 
     async def run(self, question: str) -> dict:
-        t_start = time.perf_counter()
+        """Answer one question. A fresh MCP session per question keeps runs independent;
+        `setup_ms` (session + tool listing) is reported apart from `latency_ms` (the agent)."""
         calls: list[dict] = []
         trace: list[dict] = []
         steps = 0
+        t_setup = time.perf_counter()
         async with Client(self.server) as client:
             tools = (await client.list_tools()).tools
             bound = self.model.bind_tools(mcp_tool_specs(tools))
+            setup_ms = (time.perf_counter() - t_setup) * 1000
 
             async def model_node(state: MessagesState):
                 nonlocal steps
                 steps += 1
-                return {"messages": [await bound.ainvoke(state["messages"])]}
+                msg = await bound.ainvoke(state["messages"])
+                if isinstance(msg, AIMessage) and msg.tool_calls:
+                    # some servers omit ids or repeat "0" every turn: make them unique, so each
+                    # tool result pairs with its call
+                    seen = {
+                        tc["id"]
+                        for m in state["messages"]
+                        if isinstance(m, AIMessage)
+                        for tc in m.tool_calls
+                    }
+                    fixed = []
+                    for tc in msg.tool_calls:
+                        if not tc.get("id") or tc["id"] in seen:
+                            tc = {**tc, "id": f"call_{uuid4().hex[:12]}"}
+                        seen.add(tc["id"])
+                        fixed.append(tc)
+                    msg = msg.model_copy(update={"tool_calls": fixed})
+                return {"messages": [msg]}
 
             async def tools_node(state: MessagesState):
                 out: list[BaseMessage] = []
-                for tc in state["messages"][-1].tool_calls:
+                for tc in state["messages"][-1].tool_calls:  # parallel calls: in order
                     t0 = time.perf_counter()
-                    res = await client.call_tool(tc["name"], tc.get("args") or {})
-                    text = " ".join(getattr(c, "text", "") for c in res.content)
-                    calls.append({"tool": tc["name"], "args": tc.get("args") or {}})
+                    args = tc.get("args") or {}
+                    try:
+                        res = await client.call_tool(tc["name"], args)
+                        text = " ".join(getattr(c, "text", "") for c in res.content)
+                        is_error = bool(res.is_error)
+                    except Exception as e:  # noqa: BLE001  - transport/protocol failure
+                        text, is_error = f"error: {type(e).__name__}: {e}", True
+                    calls.append({"tool": tc["name"], "args": args})
                     trace.append(
                         {
                             "tool": tc["name"],
-                            "args": tc.get("args") or {},
-                            "is_error": bool(res.is_error),
-                            "count": None if res.is_error else _result_count(text),
+                            "args": args,
+                            "is_error": is_error,
+                            "count": None if is_error else _result_count(text),
                             "ms": round((time.perf_counter() - t0) * 1000, 2),
                         }
                     )
@@ -145,14 +186,19 @@ class Agent:
             g.add_edge(START, "model")
             g.add_conditional_edges("model", route, ["tools", END])
             g.add_edge("tools", "model")
+            t_start = time.perf_counter()
             state = await g.compile().ainvoke(
                 {"messages": [SystemMessage(self.system_prompt), HumanMessage(question)]},
                 {"recursion_limit": 2 * self.max_steps + 2},
             )
+            latency_ms = (time.perf_counter() - t_start) * 1000
         last = state["messages"][-1]
-        answer = last.content if isinstance(last, AIMessage) and not last.tool_calls else ""
-        if isinstance(answer, list):  # content blocks
-            answer = " ".join(b.get("text", "") if isinstance(b, dict) else str(b) for b in answer)
+        # At the step limit the last message still asks for tools; those calls are not run.
+        answer = (
+            _text_content(last.content)
+            if isinstance(last, AIMessage) and not last.tool_calls
+            else ""
+        )
         items, refused, ok = parse_final(answer)
         return {
             "answer": answer,
@@ -163,5 +209,6 @@ class Agent:
             "trace": trace,
             "steps": steps,
             "hit_step_limit": steps >= self.max_steps and not answer,
-            "latency_ms": round((time.perf_counter() - t_start) * 1000, 2),
+            "latency_ms": round(latency_ms, 2),
+            "setup_ms": round(setup_ms, 2),
         }
